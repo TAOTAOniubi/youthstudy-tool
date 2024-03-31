@@ -24,34 +24,47 @@ StudyId=re.search('[a-z0-9]{10}',LatestStudy['data']['entity']['url']).group(0)
 StudyName=LatestStudy['data']['entity']['name']
 FinishpageUrl='https://finishpage.dgstu.tk/?id='+StudyId+'&name='+parse.quote(StudyName)
 
-# time.sleep(60)#平台统计有延迟
+# time.sleep(30)#平台统计有延迟
 errorcount=0
 for member in origin:
     if member['status']== 'error':
         errorcount+=1
         continue
-    XLtoken=main.ConverMidToXLToken(member['member'])
-    profile=main.GetProfile(XLtoken)
-    score_now=profile.score()
-    score_add=score_now-member['score']
-    if score_now < 100:
-        score_need=100-score_now
-    elif score_now < 200:
-        score_need=200-score_now
-    elif score_now < 500:
-        score_need=500-score_now
-    elif score_now < 1000:
-        score_need=1000-score_now
-    elif score_now < 5000:
-        score_need=5000-score_now
-    else:
-        score_need=0
-    # member['result']+='<br>此次执行增加了<b>'+str(score_add)+'</b>积分'+'<br>当前为<b>'+profile.medal()+'</b>，距离下一徽章还需<b>'+str(score_need)+'</b>积分<br>'
-    member['result']['sam']={
-        'added':str(score_add),
-        'medal':profile.medal(),
-        'needed':str(score_need)
-    }
+    try:
+        XLtoken=member['XLtoken']
+        try:
+            profile=main.GetProfile(XLtoken)
+            score_now=profile.score()
+        except:
+            profile=main.GetProfile(main.ConverMidToXLToken(member['member']))
+            score_now=profile.score()
+        score_add=score_now-member['score']
+        if score_now < 100:
+            score_need=100-score_now
+        elif score_now < 200:
+            score_need=200-score_now
+        elif score_now < 500:
+            score_need=500-score_now
+        elif score_now < 1000:
+            score_need=1000-score_now
+        elif score_now < 5000:
+            score_need=5000-score_now
+        else:
+            score_need=0
+        # member['result']+='<br>此次执行增加了<b>'+str(score_add)+'</b>积分'+'<br>当前为<b>'+profile.medal()+'</b>，距离下一徽章还需<b>'+str(score_need)+'</b>积分<br>'
+        member['result']['sam']={
+            'added':str(score_add),
+            'medal':profile.medal(),
+            'needed':str(score_need)
+        }
+        time.sleep(0.2)
+    except Exception as e:
+        print('出现错误了：'+e)
+        member['result']['sam']={
+            'added':'Null',
+            'medal':'Null',
+            'needed':'Null'
+        }
 
 
 if errorcount!=len(main.memberlist):
@@ -61,9 +74,11 @@ if errorcount!=len(main.memberlist):
             if titledone==False:
                 title='['+str(len(main.memberlist)-errorcount)+'/'+str(len(main.memberlist))+']'+i['status']+'啦'
                 titledone=True#若有打卡成功的则锁定标题
+                StudySuccess=True
         else:
             if titledone==False:
                 title='['+str(len(main.memberlist)-errorcount)+'/'+str(len(main.memberlist))+']'+'积分任务执行完毕'
+                StudySuccess=False
 else:
     title='任务执行失败'
     content='所有mid或X-Litemall-Token皆打卡失败'
@@ -126,18 +141,21 @@ for mem in origin:
 
 # 推送
 if config['push']['push']=='yes':
-    if config['push']['method']=='pushplus':
-        tokenhandler('pushplus',['token'])
-        pushplus.push(title,htmlcontent,config['pushplus'])
-    elif config['push']['method']=='email':
-        tokenhandler('email',['host','port','sender','password'])
-        email.push(title,htmlcontent,config['email'])
-    elif config['push']['method']=='telegram':
-        tokenhandler('telegram',['botToken','userId'])
-        serverChan.push(title,textcontent,config['telegram'])
-    elif config['push']['method']=='severChan':
-        tokenhandler('severChan',['key'])
-        serverChan.push(title,textcontent,config['severChan'])
+    if (config['push']['time']=='Success' and StudySuccess==True) or config['push']['time']=='all':
+        if config['push']['method']=='pushplus':
+            tokenhandler('pushplus',['token'])
+            pushplus.push(title,htmlcontent,config['pushplus'])
+        elif config['push']['method']=='email':
+            tokenhandler('email',['host','port','sender','password'])
+            email.push(title,htmlcontent,config['email'])
+        elif config['push']['method']=='telegram':
+            tokenhandler('telegram',['botToken','userId'])
+            serverChan.push(title,textcontent,config['telegram'])
+        elif config['push']['method']=='severChan':
+            tokenhandler('severChan',['key'])
+            serverChan.push(title,textcontent,config['severChan'])
+    else:
+        print('跳过推送')
 
 #Actions Summary
 try:
